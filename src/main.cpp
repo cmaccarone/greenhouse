@@ -63,11 +63,14 @@ void loop() {
   }
   lcd1.clear();
   lcd.clear();
-  lcd1.drawString(0, 0, "Stove: " + String(sensors.getTempFByIndex(1)) + "  "); 
-  lcd1.drawString(0, 16, "OutPut: " + String(sensors.getTempFByIndex(0)) + "     ");
+  lcd1.drawString(0, 0, "Stove Temp: " + String(sensors.getTempFByIndex(1)) + "  "); 
+  lcd1.drawString(0, 16, "Output Temp: " + String(sensors.getTempFByIndex(2)) + "  ");
+  lcd1.drawString(0, 32, "-----------");
+  lcd1.drawString(0, 48, "Inside Temp: " + String(sensors.getTempFByIndex(0)) + "     ");
   lcd.drawString(0, 0, "Temp Diff: " + String(actLimit) + "  "); 
-  lcd.drawString(0, 32, "Relay Status: " + String(digitalRead(relayPin) == HIGH ? "ON" : "OFF"));
-  lcd.drawString(0, 16, "By: Caleb & Mario");
+  lcd.drawString(0, 16, "Relay Status: " + String(digitalRead(relayPin) == HIGH ? "ON" : "OFF"));
+  lcd.drawString(0, 32, "-----------");
+  lcd.drawString(0, 48, "By: Caleb & Mario");
   lcd1.display();
   lcd.display();
 
