@@ -1,0 +1,15 @@
+[env]
+board = "nodemcuv2"
+
+[build]
+platform = "espressif8266"
+framework = "arduino"
+
+[dependencies]
+OneWire = { version = "^2.3.5" }
+DallasTemperature = { version = "^3.9.0" }
+ESP8266_and_ESP32_OLED_driver_for_SSD1306_displays = "^4.2.0"
+ESPAsyncWebServer = "^1.2.3"
+
+[upload]
+port = "/dev/cu.usbserial-0001"

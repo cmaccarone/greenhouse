@@ -1,72 +1,107 @@
-#include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
-#include <DNSServer.h>
-#include <EEPROM.h>
+//YWROBOT
+//Compatible with the Arduino IDE 1.0
+//Library version:1.1
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include "SSD1306.h"
 
-const char* ssid = "ESP8266_Hotspot";
-const char* password = "password";
+// Data wire is connected to the Arduino digital pin 4
+#define ONE_WIRE_BUS D3
 
-ESP8266WebServer server(80);
-DNSServer dnsServer;
+// Setup a oneWire instance to communicate with any OneWire devices
+OneWire oneWire(ONE_WIRE_BUS);
 
-String inputValue = "";
+// Pass our oneWire reference to Dallas Temperature sensor 
+DallasTemperature sensors(&oneWire);
 
-void handleRoot() {
-  Serial.println("Handling root request");
-  String html = "<h1>Hello, Christine!</h1>";
-  html += "<form action=\"/submit\" method=\"POST\">";
-  html += "Input: <input type=\"text\" name=\"input\" value=\"" + inputValue + "\"><br>";
-  html += "<input type=\"submit\" value=\"Submit\">";
-  html += "</form>";
-  server.send(200, "text/html", html);
-}
+// Address set here 0x3C that I found in the scanner, and pins defined as D2 (SDA/Serial Data), and D5 (SCK/Serial Clock).
+SSD1306 lcd(0x3D, D2, D1);
+SSD1306 lcd1(0x3C, D2, D1); //bottom set the LCD address to 0x27 for a 16 chars and 2 line display
 
-void handleSubmit() {
-  if (server.hasArg("input")) {
-    inputValue = server.arg("input");
-    Serial.println("Received input: " + inputValue);
-    EEPROM.begin(512);
-    for (int i = 0; i < inputValue.length(); ++i) {
-      EEPROM.write(i, inputValue[i]);
-    }
-    EEPROM.write(inputValue.length(), '\0'); // Add termination character
-    EEPROM.commit();
-  }
-  server.sendHeader("Location", "/");
-  server.send(303);
-}
+int actLimit;
+int incrementPin = D6;
+int decrementPin = D5;
+int relayPin = D7;
 
 void setup() {
-  Serial.begin(9600);
-  Serial.println("Serial started");
+  pinMode(relayPin, OUTPUT);
+  pinMode(incrementPin, INPUT);
+  pinMode(decrementPin, INPUT);
+  Serial.begin(115200);
+  sensors.begin();
+  lcd.init();  // initialize the lcd 
+  lcd.setColor(WHITE);
+  lcd1.init();
+  // Print a message to the LCD.
+  lcd.flipScreenVertically();
+  lcd1.flipScreenVertically();
   
-  WiFi.softAP(ssid, password);
-  Serial.println("Hotspot started");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.softAPIP());
-
-  dnsServer.start(53, "*", WiFi.softAPIP());
-
-  EEPROM.begin(512);
-  char savedInput[512];
-  for (int i = 0; i < 512; ++i) {
-    savedInput[i] = EEPROM.read(i);
-  }
-  inputValue = String(savedInput);
-
-  server.on("/", handleRoot);
-  server.on("/submit", HTTP_POST, handleSubmit);
-  server.begin();
-  Serial.println("HTTP server started");
-  Serial.println("To view the web page, connect to the WiFi network and open a web browser. Then, navigate to the IP address: " + WiFi.softAPIP().toString());
+  digitalWrite(D8, HIGH);
 }
 
 void loop() {
-  dnsServer.processNextRequest();
-  server.handleClient();
-  Serial.println("Handling client");
-  Serial.print("Free heap memory: ");
-  Serial.println(ESP.getFreeHeap());
-  delay(1000); // Add a delay to avoid flooding the serial output
+  //Call sensors.requestTemperatures() to issue a global temperature and Requests to all devices on the bus
+  sensors.requestTemperatures(); 
+  if (digitalRead(incrementPin) == HIGH) {    
+      if (actLimit < 50) {
+    actLimit += 1;
+    delay(250);
+  }
+  }
+  
+  if (digitalRead(decrementPin) == HIGH) {
+      if (actLimit > 0) {
+    actLimit -= 1;
+    delay(250);
+  }
+  }
+
+  if (sensors.getTempFByIndex(1) > sensors.getTempFByIndex(0) + actLimit) {
+    digitalWrite(relayPin, HIGH);
+  } else {
+    digitalWrite(relayPin, LOW);
+  }
+  lcd1.clear();
+  lcd.clear();
+  lcd1.drawString(0, 0, "Stove: " + String(sensors.getTempFByIndex(1)) + "  "); 
+  lcd1.drawString(0, 16, "OutPut: " + String(sensors.getTempFByIndex(0)) + "     ");
+  lcd.drawString(0, 0, "Temp Diff: " + String(actLimit) + "  "); 
+  lcd.drawString(0, 16, "By: Caleb & Mario");
+  lcd1.display();
+  lcd.display();
+
+  // Add logs to show temperature readings and relay status
+  Serial.print("Temperature Sensor 0: ");
+  Serial.println(sensors.getTempFByIndex(0));
+  Serial.print("Temperature Sensor 1: ");
+  Serial.println(sensors.getTempFByIndex(1));
+  Serial.print("Temperature Difference Limit: ");
+  Serial.println(actLimit);
+  Serial.print("Relay Status: ");
+  Serial.println(digitalRead(relayPin) == HIGH ? "ON" : "OFF");
 }
+
+void increment() {
+  if (actLimit < 50) {
+    actLimit += 1;
+    delay(250);
+  }
+}
+
+void decrement() {
+  if (actLimit > 0) {
+    actLimit -= 1;
+    delay(250);
+  }
+}
+
+// Documentation Section
+// Pin Connections:
+// - ONE_WIRE_BUS: D3 (Data wire for temperature sensor)
+// - LCD 0x3D: D2 (SDA/Serial Data), D1 (SCK/Serial Clock)
+// - LCD 0x3C: D2 (SDA/Serial Data), D1 (SCK/Serial Clock)
+// - incrementPin: D6 (Button to increment temperature limit)
+// - decrementPin: D5 (Button to decrement temperature limit)
+// - relayPin: D7 (Relay control pin)
+// - Serial communication: 115200 baud rate
+// - Additional pin: D8 (Set to HIGH in setup)
